@@ -89,9 +89,9 @@ def compute_class_weights(labels: Sequence[int], power: float) -> ClassWeights:
 class DataBundle:
     """Loaders plus everything needed to describe how they were built."""
 
-    train: DataLoader[tuple[torch.Tensor, int]]
-    val: DataLoader[tuple[torch.Tensor, int]]
-    test: DataLoader[tuple[torch.Tensor, int]]
+    train: DataLoader[tuple[torch.Tensor, torch.Tensor]]
+    val: DataLoader[tuple[torch.Tensor, torch.Tensor]]
+    test: DataLoader[tuple[torch.Tensor, torch.Tensor]]
     manifest: SplitManifest
     class_weights: ClassWeights | None
     train_dataset: TransformSubset
@@ -185,7 +185,7 @@ def build_dataloaders(
     generator = make_generator(config.training.seed)
     loader_kwargs = _loader_kwargs(config)
 
-    train_loader = DataLoader(
+    train_loader: DataLoader[tuple[torch.Tensor, torch.Tensor]] = DataLoader(
         train_subset,
         batch_size=config.training.batch_size,
         shuffle=class_weights is None,
@@ -203,14 +203,14 @@ def build_dataloaders(
         drop_last=False,
         **loader_kwargs,
     )
-    val_loader = DataLoader(
+    val_loader: DataLoader[tuple[torch.Tensor, torch.Tensor]] = DataLoader(
         val_subset,
         batch_size=config.training.batch_size,
         shuffle=False,
         drop_last=False,
         **loader_kwargs,
     )
-    test_loader = DataLoader(
+    test_loader: DataLoader[tuple[torch.Tensor, torch.Tensor]] = DataLoader(
         test_subset,
         batch_size=config.training.batch_size,
         shuffle=False,

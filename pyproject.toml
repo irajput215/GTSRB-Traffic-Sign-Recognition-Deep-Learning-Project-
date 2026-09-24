@@ -109,6 +109,10 @@ ignore = [
 [tool.ruff.lint.per-file-ignores]
 "scripts/*" = ["T20"]
 "tests/*" = ["PLR2004", "ARG001", "ARG002"]
+# CLIs exist to write to stdout; that is the point of them.
+"src/gtsrb/cli/*" = ["T20"]
+# A no-op tracker must accept the whole interface and ignore all of it.
+"src/gtsrb/tracking/base.py" = ["ARG002"]
 "src/gtsrb/evaluation/visualization.py" = ["PLR0913"]
 "src/gtsrb/api/*" = ["B008"] # FastAPI Depends() in defaults is the documented pattern
 

@@ -6,8 +6,9 @@
 
 .DEFAULT_GOAL := help
 .PHONY: help install install-all lock lint format format-check typecheck test test-unit \
-        test-integration coverage check config data data-stats validate-configs clean \
-        clean-artifacts pre-commit docker-build docker-run docker-up docker-down mlflow-ui
+        test-integration coverage check config data data-stats validate-configs train train-mlp \
+        train-resnet smoke clean clean-artifacts pre-commit docker-build docker-run docker-up \
+        docker-down mlflow-ui
 
 UV ?= uv
 PYTHON ?= $(UV) run python
@@ -107,6 +108,28 @@ data-stats:
 ## validate-configs: check every shipped YAML layer against the schema
 validate-configs:
 	$(PYTHON) scripts/validate_configs.py
+
+# ---------------------------------------------------------------------------
+# Training
+# ---------------------------------------------------------------------------
+
+## train: train the default model (compact CNN, 30 epochs)
+train:
+	$(PYTHON) -m gtsrb.cli.train
+
+## train-mlp: train the MLP baseline from the original three-way comparison
+train-mlp:
+	$(PYTHON) -m gtsrb.cli.train --set model.name=mlp
+
+## train-resnet: train the ResNet-50 transfer-learning model (256x256, slower)
+train-resnet:
+	$(PYTHON) -m gtsrb.cli.train --set model.name=resnet50 --set data.image_size=256 \
+		--set training.batch_size=32 --set training.optimizer.lr=5e-3
+
+## smoke: one epoch on the default model, to check the pipeline end to end
+smoke:
+	$(PYTHON) -m gtsrb.cli.train --set training.epochs=1 --set training.batch_size=64 \
+		--set training.early_stopping.enabled=false
 
 # ---------------------------------------------------------------------------
 # Housekeeping
