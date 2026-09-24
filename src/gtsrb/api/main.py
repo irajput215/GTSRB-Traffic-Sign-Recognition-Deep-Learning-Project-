@@ -20,7 +20,6 @@ from __future__ import annotations
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 from pathlib import Path
-from typing import Any
 
 from fastapi import FastAPI, Request
 from fastapi.exceptions import RequestValidationError
@@ -247,17 +246,4 @@ def build_app_from_env() -> FastAPI:
     return create_app(config)
 
 
-def load_state(app: FastAPI) -> AppState:
-    """Return the app state (convenience for tests and tooling)."""
-    return get_state_from_app(app)
-
-
-def get_state_from_app(app: FastAPI) -> AppState:
-    """Return the app state without needing a request."""
-    state: Any = getattr(app.state, "gtsrb", None)
-    if not isinstance(state, AppState):  # pragma: no cover - guards a wiring mistake
-        raise RuntimeError("Application was not built by create_app()")
-    return state
-
-
-__all__ = ["DEFAULT_CONFIG_LAYERS", "build_app_from_env", "create_app", "lifespan", "load_state"]
+__all__ = ["DEFAULT_CONFIG_LAYERS", "build_app_from_env", "create_app", "lifespan"]

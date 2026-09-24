@@ -114,16 +114,27 @@ the dataset and reading `len(dataset)` for both splits.
 
 ## Training cost, measured
 
-Measured on the verification machine — Apple M1, 8 GB RAM, MPS backend, `num_workers=0`:
+A complete 30-epoch run on the verification machine — Apple M1, 8 GB RAM, MPS
+backend, `num_workers=0`:
 
 | Quantity | Value |
 | --- | --- |
-| Epoch wall-clock | ~130 s |
-| Full 30-epoch run | ~65 min (projected from the measured epoch cost) |
+| Full 30-epoch run | **5,620.7 s (93.7 min)** |
+| Per epoch | ~187 s |
+| Best epoch | 26 |
 | Parameters | 9,557,483 |
 | In-memory model size | 36.5 MB |
 | `best.pt` on disk | 38,255,275 bytes |
 | `last.pt` on disk | 114,733,611 bytes |
+
+An earlier idle-machine measurement gave ~130 s per epoch, projecting to ~65 min. The
+real run took 93.7 min because the test suite and several Docker builds were competing
+for the same GPU. Both numbers are kept because the difference is itself informative:
+on an 8 GB shared machine, concurrent work costs about 45% of training throughput.
+
+The eval on the test split took a further 44 s (12,630 images, including nine figures).
+
+Full results: [RESULTS.md](RESULTS.md).
 
 `last.pt` is three times `best.pt` because it carries Adam's two moment buffers per
 parameter. `best.pt` is the served artifact.

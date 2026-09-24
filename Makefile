@@ -156,8 +156,9 @@ evaluate-val:
 # Inference
 # ---------------------------------------------------------------------------
 
-## predict: classify one image with the default checkpoint
+## predict: classify one image (usage: make predict IMAGE=path/to/sign.png)
 predict:
+	@test -n "$(IMAGE)" || { echo "usage: make predict IMAGE=path/to/sign.png" >&2; exit 2; }
 	$(PYTHON) -m gtsrb.cli.predict --image $(IMAGE) --json
 
 # ---------------------------------------------------------------------------
@@ -185,12 +186,13 @@ mlflow-ui:
 # Containers
 # ---------------------------------------------------------------------------
 
-IMAGE ?= gtsrb-traffic-sign-recognition:local
+DOCKER_IMAGE ?= gtsrb-traffic-sign-recognition:local
+IMAGE ?=
 CHECKPOINT_DIR ?= artifacts/checkpoints
 
 ## docker-build: build the inference image
 docker-build:
-	docker build -t $(IMAGE) .
+	docker build -t $(DOCKER_IMAGE) .
 
 ## docker-run: run the inference image with the checkpoint mounted read-only
 docker-run:
@@ -198,7 +200,7 @@ docker-run:
 		-v "$(PWD)/$(CHECKPOINT_DIR):/app/artifacts/checkpoints:ro" \
 		-e GTSRB_CHECKPOINT_PATH=/app/artifacts/checkpoints/best.pt \
 		-e GTSRB_DEVICE=cpu \
-		$(IMAGE)
+		$(DOCKER_IMAGE)
 
 ## docker-up: start the service with Compose
 docker-up:
@@ -219,7 +221,7 @@ docker-logs:
 
 ## docker-size: report the built image size
 docker-size:
-	@docker images $(IMAGE) --format "{{.Repository}}:{{.Tag}}  {{.Size}}"
+	@docker images $(DOCKER_IMAGE) --format "{{.Repository}}:{{.Tag}}  {{.Size}}"
 
 # ---------------------------------------------------------------------------
 # Housekeeping
