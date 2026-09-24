@@ -14,7 +14,7 @@ structured error analysis, and a containerised FastAPI inference service.**
 [![CI](https://github.com/irajput215/GTSRB-Traffic-Sign-Recognition-Deep-Learning-Project-/actions/workflows/ci.yml/badge.svg)](../../actions/workflows/ci.yml)
 [![Ruff](https://img.shields.io/badge/lint-ruff-261230?logo=ruff&logoColor=white)](https://docs.astral.sh/ruff/)
 [![mypy](https://img.shields.io/badge/typed-mypy-2A6DB2)](https://mypy-lang.org/)
-[![Tests](https://img.shields.io/badge/tests-440%2B%20passing-brightgreen)](tests/)
+[![Tests](https://img.shields.io/badge/tests-455%20passing-brightgreen)](tests/)
 [![License: MIT](https://img.shields.io/badge/license-MIT-yellow.svg)](LICENSE)
 
 </div>
@@ -39,10 +39,12 @@ and the entire error-analysis pipeline key on **macro F1** rather than accuracy.
 model that silently fails on one sign type is worse than one that is 2 points less
 accurate overall.
 
-**Every claim is measured.** Split reproduction, parameter counts, per-epoch
-wall-clock time, checkpoint sizes, container size, inference latency. Where a number
-came from the original notebook rather than this repository's commands, it says so —
-see [Metrics provenance](docs/REPRODUCIBILITY.md#metrics-provenance).
+**Every claim is measured.** A full 30-epoch run of this pipeline is reported
+end to end — 98.90% accuracy, **0.9837 macro F1**, 0.0059 calibration error, 93.7 min
+on an M1 — alongside the original run's numbers, which are labelled as such rather
+than presented as new. Parameter counts, epoch timing, checkpoint sizes, container size
+and inference latency are all measurements. Provenance:
+[docs/RESULTS.md](docs/RESULTS.md).
 
 **The serving path cannot drift from training.** Inference reads its input geometry
 and normalisation statistics from the checkpoint, so a later config edit cannot
@@ -75,7 +77,7 @@ flowchart LR
 | **Experiment tracking** | MLflow as an optional extra: params, per-epoch metrics, the resolved config as an artifact, and an opt-in model registry. Local SQLite by default — no server needed. |
 | **Inference API** | FastAPI with `/predict`, `/health`, `/ready`, `/model-info`, `/metrics`. Documented error responses, no internal detail leaked, no uploaded image logged or persisted. |
 | **Containerised** | 1.8 GB, two-stage, CPU-only PyTorch, non-root, read-only root filesystem, healthcheck. |
-| **Tested and gated** | 440+ tests, none of which needs the dataset. Ruff, mypy, pre-commit, GitHub Actions on 3.12 and 3.13, plus a scheduled training-quality gate. |
+| **Tested and gated** | 455 tests at 92% coverage, none of which needs the dataset. Ruff, mypy, pre-commit, GitHub Actions on 3.12 and 3.13, plus a scheduled training-quality gate. |
 
 ---
 
@@ -269,12 +271,42 @@ a registry entry is a claim that a model is worth promoting.
 
 ## Evaluation
 
-### Results — original recorded run
+### A real run of this repository — measured end to end
+
+A complete 30-epoch run of **this** pipeline (`make train` → `make evaluate`), on the
+M1, evaluated on the official 12,630-image test split:
+
+| Metric | Value |
+| --- | ---: |
+| **Accuracy** | **98.90%** |
+| **Macro F1** | **0.9837** |
+| Macro precision / recall | 0.9822 / 0.9878 |
+| Top-3 / top-5 accuracy | 0.9967 / 0.9979 |
+| **Expected calibration error** | **0.0059** |
+| Mean confidence when correct / incorrect | 0.998 / 0.749 |
+| Errors | **139 / 12,630** |
+| Best validation epoch | 26 (val accuracy 0.9992, val macro F1 0.9990) |
+| Wall clock, 30 epochs | 93.7 min (M1 MPS; hosts were also under test load) |
+
+**Class 27 (Pedestrians) — the original run's worst class at 54.2% recall — is at
+100% recall on this run.** The largest residual failure is class 22 (Bumpy road) at
+76.7%, and the honest caveat is in [RESULTS.md](docs/RESULTS.md#the-honest-caveat-on-class-22):
+with 120 test samples, a few corrupted captures move the number materially, and the
+gallery shows the dominant cause of *all* remaining errors is degraded capture —
+motion blur, under-exposure, blown highlights — rather than model capacity.
+
+Full record, including the reproduce-it-yourself checklist:
+**[docs/RESULTS.md](docs/RESULTS.md)**
+
+| Confusion matrix | Calibration |
+| --- | --- |
+| ![Confusion matrix](docs/images/eval_confusion_matrix.png) | ![Calibration](docs/images/eval_confidence_analysis.png) |
+
+### The original three-way comparison
 
 These are the **measured outputs of the original COMP9444 notebook run** (Colab,
-A100), preserved in `docs/images/` and written up in
-`docs/original/COMP9444_report.pdf`. They are **not** produced by this repository's
-commands; see [Metrics provenance](docs/REPRODUCIBILITY.md#metrics-provenance).
+A100), preserved as provenance. They are **not** produced by this repository's
+commands, they are single runs with no repeats, and the caveat below applies.
 
 Test split, 12,630 images:
 
@@ -314,18 +346,17 @@ failure a single accuracy number hides.
 | 22 Bumpy road | 97.6% | 330 |
 | 26 Traffic signals | 97.6% | 540 |
 
-### Figures
+### Errors from the refactored run
 
-| Confusion matrix (row-normalised) | Training curves |
-| --- | --- |
-| ![Confusion matrix](docs/images/confusion_matrix_cnn.png) | ![Training curves](docs/images/curves_cnn_loss.png) |
+Every image below is the model's **most confident** error for one of the worst classes.
+Motion blur, under-exposure, blown highlights and one corrupted capture — degraded
+input, not missing capacity.
 
-| Misclassified examples (original run) | Sample images per class |
-| --- | --- |
-| ![Misclassified](docs/images/misclassified_examples_cnn.png) | ![Samples](docs/images/eda_sample_per_class.png) |
+![Misclassified by class](docs/images/eval_misclassified_by_class.png)
 
-*These are the original run's recorded outputs, kept as provenance. The full set is in
-[`docs/images/`](docs/images/).*
+The original run's recorded artifacts are kept as provenance in
+[`docs/images/`](docs/images/) (`confusion_matrix_cnn.png`, `curves_cnn_loss.png`,
+`misclassified_examples_cnn.png`).
 
 ### What the evaluation produces now
 
@@ -352,7 +383,8 @@ failure is not buried by a common one's), the within- vs across-family error spl
 confident errors, and rare-class error share.
 
 `predictions.csv` is the full per-sample record, so the analysis can be redone or
-extended without a GPU.
+extended without a GPU — there is a test that rebuilds the confusion matrix from it and
+asserts it matches.
 
 ---
 
@@ -517,7 +549,7 @@ make test-integration  # real wiring
 make coverage
 ```
 
-**440+ tests, and none of them requires the GTSRB download.** Fixtures build synthetic
+**455 tests at 92% coverage, and none of them requires the GTSRB download.** Fixtures build synthetic
 sign-like images and tiny models, so the suite runs on a fresh clone in seconds. Tests
 that genuinely need the real data skip cleanly when it is absent — the same command
 works on a laptop, in CI and on a fresh clone.
@@ -615,9 +647,11 @@ Three of these reversed a first implementation after a measurement, and the reve
 are kept in the record — the first answer being wrong is more informative than a tidy
 list of correct ones.
 
-Also: **[docs/PROJECT_AUDIT.md](docs/PROJECT_AUDIT.md)** — the evidence-based audit of
-what existed before any of this, including 25 concrete problems and three places where
-the original report and the original code disagreed.
+Also: **[docs/RESULTS.md](docs/RESULTS.md)** — both runs, the comparison, the full
+per-class table and an explicit list of what the results do **not** show.
+**[docs/PROJECT_AUDIT.md](docs/PROJECT_AUDIT.md)** — the evidence-based audit of what
+existed before any of this, including 25 concrete problems and three places where the
+original report and the original code disagreed.
 
 ---
 

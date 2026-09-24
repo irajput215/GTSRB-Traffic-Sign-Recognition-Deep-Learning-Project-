@@ -33,12 +33,20 @@ repos:
       - id: mixed-line-ending
         args: [--fix=lf]
 
+  # Python source only. ruff-format also reformats Python code fences inside
+  # Markdown, which is a feature for a notebook-driven repo and a nuisance here:
+  # the checkpoint example in docs/ARCHITECTURE.md uses aligned inline comments to
+  # make the fields readable, and the formatter collapses them. `make format` and
+  # CI's `ruff format --check` both target src/tests/scripts explicitly, so
+  # excluding Markdown keeps the hook and the gate consistent.
   - repo: https://github.com/astral-sh/ruff-pre-commit
     rev: v0.16.8
     hooks:
       - id: ruff
         args: [--fix, --exit-non-zero-on-fix]
+        exclude: \.md$
       - id: ruff-format
+        exclude: \.md$
 
   - repo: local
     hooks:

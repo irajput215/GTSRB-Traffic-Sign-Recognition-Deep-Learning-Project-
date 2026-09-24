@@ -8,7 +8,6 @@ testable, which matters because they decide which weights you end up shipping.
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Any
 
 import torch
 from torch.optim import Optimizer
@@ -213,13 +212,6 @@ def build_optimizer(
     raise ValueError(f"Unsupported optimizer {name!r}; expected adam, adamw or sgd")
 
 
-def scheduler_metadata(scheduler: LRScheduler | ReduceLROnPlateau | None) -> dict[str, Any]:
-    """Describe a scheduler for logging."""
-    if scheduler is None:
-        return {"name": "none"}
-    return {"name": type(scheduler).__name__}
-
-
 __all__ = [
     "MONITORED_METRICS",
     "CheckpointDecision",
@@ -228,5 +220,4 @@ __all__ = [
     "build_optimizer",
     "build_scheduler",
     "current_learning_rate",
-    "scheduler_metadata",
 ]

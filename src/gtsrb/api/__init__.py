@@ -19,7 +19,7 @@ Endpoints:
 from __future__ import annotations
 
 from gtsrb.api.dependencies import AppState, get_predictor, get_request_id, get_state
-from gtsrb.api.main import build_app_from_env, create_app, load_state
+from gtsrb.api.main import build_app_from_env, create_app
 from gtsrb.api.metrics import Metrics
 from gtsrb.api.schemas import (
     ClassScoreResponse,
@@ -48,5 +48,4 @@ __all__ = [
     "get_predictor",
     "get_request_id",
     "get_state",
-    "load_state",
 ]

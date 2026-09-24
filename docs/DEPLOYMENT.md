@@ -164,6 +164,28 @@ per-request inference does. That is deliberately not implemented here, because
 adding a queue changes the latency/throughput trade-off and should be driven by a
 measured need rather than assumed.
 
+## Security review
+
+What was checked, and what the answer is:
+
+| Concern | Status |
+| --- | --- |
+| Credentials in the repository | **None.** No API key, token, password or private key exists in any tracked file. `detect-private-key` is a pre-commit hook, so a key cannot be committed accidentally. |
+| `.env` files | Git-ignored (`.env`, `.env.*`), with `.env.example` committed as documentation. |
+| Hardcoded credentials | None. Nothing in this project authenticates to anything; there is no cloud dependency to hold a credential for. |
+| Dataset paths | Configurable via `GTSRB_DATA_ROOT` or `data.root` in YAML. No absolute path is baked into the code — the original's `/content/dataset/` is gone. |
+| Uploaded images | Validated in memory, never written to disk, never logged, never echoed in an error message. The request log records whether a filename was *supplied*, not the name. A test asserts a path-like filename cannot appear in the logs. |
+| Error responses | One shape carrying a stable code, a safe detail and a request id. No stack trace, file path or library message reaches a client — a test triggers an unhandled exception and asserts the internal message is absent from the response. |
+| Container privileges | Non-root (uid 1001), read-only root filesystem, `tmpfs` for `/tmp`, `no-new-privileges`. |
+| Untrusted input | Upload size is checked **before** decoding; decoding is capped by an explicit pixel limit to bound decompression bombs; truncated files are rejected because Pillow otherwise half-decodes them. |
+| Dependency surface | Nine core dependencies, each justified. Specifically removed an unused `pandas` during the Docker work rather than carrying 75 MB of dead weight. |
+| ML supply chain | The MLflow artifact is loaded as `pickle`, which is code-executing. Acceptable for an artifact this process produced; **not** acceptable for a model from an untrusted source, which would need `weights_only=True` checkpoint loading and a safetensors export. |
+
+**What is deliberately absent:** authentication, authorization and rate limiting.
+Those belong at the ingress, and implementing a half-measure in the application — a
+bearer token read from an environment variable, say — would create a false sense of
+safety. The limitation is stated rather than papered over.
+
 ## Known limitations
 
 - **No authentication.** The API is open. Put it behind an authenticating gateway
