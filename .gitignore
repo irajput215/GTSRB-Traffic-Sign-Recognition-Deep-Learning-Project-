@@ -81,6 +81,8 @@ coverage.xml
 # ---------------------------------------------------------------------------
 .ipynb_checkpoints/
 *.nbconvert.ipynb
+# Figures a notebook writes next to itself while exploring
+notebooks/*.png
 
 # ---------------------------------------------------------------------------
 # Editors and OS

@@ -103,7 +103,7 @@ def validate_dataset(
     num_classes: int,
     sample_size: int = 0,
     seed: int = 43,
-    expected_ratio: float = 0.5,
+    max_aspect_ratio: float = 4.0,
 ) -> DatasetStatistics:
     """Check a dataset and return its statistics.
 
@@ -114,9 +114,27 @@ def validate_dataset(
             decoding and only reads labels, which is the fast path used in tests
             and in CI where the dataset is a generated fixture.
         seed: sampling seed, so a sampled check is reproducible.
-        expected_ratio: reject images whose aspect ratio departs from 1:1 by more
-            than this fraction. Traffic signs are close to square after cropping;
-            a wildly non-square image usually means a corrupt file.
+        max_aspect_ratio: reject an image whose longer side is more than this many
+            times its shorter side. A **corruption guard, not a shape constraint**:
+            GTSRB crops carry a margin and are legitimately not square.
+
+            The default is measured, not guessed. Across **all 39,270 images** in
+            both splits, the long/short ratio has median 1.033, p99 1.293, p99.9
+            2.034 and **maximum 2.716**; exactly 2 images exceed 2.5 and none exceed
+            3.0.
+
+            Two earlier defaults were wrong, and both were caught by running the
+            check over the real data rather than by reasoning about it:
+
+            * a departure-from-1:1 threshold of 0.5 rejected a genuine 0.467-ratio
+              image, so a full validation pass could not succeed at all — and it was
+              asymmetric, since ``|ratio - 1| <= 1`` accepted a 1-pixel-wide strip;
+            * a long/short bound of 2.5 rejected a genuine 67x182 image at 2.72.
+
+            4.0 is deliberately loose. The observed maximum is 2.716, and what this
+            guard is for — misread dimensions, a wrong file entirely — lands far
+            above 4.0, while the gap to real data is not so small that a different
+            dataset revision would trip it.
 
     Returns:
         Statistics for the dataset.
@@ -141,7 +159,7 @@ def validate_dataset(
             dataset,
             sample_size=min(sample_size, len(dataset)),
             seed=seed,
-            expected_ratio=expected_ratio,
+            max_aspect_ratio=max_aspect_ratio,
         )
 
     return statistics
@@ -152,7 +170,7 @@ def _check_images(
     *,
     sample_size: int,
     seed: int,
-    expected_ratio: float,
+    max_aspect_ratio: float,
 ) -> None:
     rng = np.random.default_rng(seed)
     positions = rng.choice(len(dataset), size=sample_size, replace=False)
@@ -172,11 +190,12 @@ def _check_images(
         width, height = image.size
         if width == 0 or height == 0:
             raise DatasetValidationError(f"Sample {index} has zero width or height")
-        ratio = width / height
-        if abs(ratio - 1.0) > expected_ratio:
+        ratio = max(width, height) / min(width, height)
+        if ratio > max_aspect_ratio:
             raise DatasetValidationError(
-                f"Sample {index} has aspect ratio {ratio:.2f}, which is further from 1:1 than "
-                f"the allowed {expected_ratio}. This usually indicates a corrupt file."
+                f"Sample {index} has a {width}x{height} shape, a long/short ratio of "
+                f"{ratio:.2f}, above the allowed {max_aspect_ratio}. This usually "
+                "indicates a corrupt or badly cropped file."
             )
 
 

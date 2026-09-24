@@ -518,16 +518,53 @@ class TestValidateDataset:
         with pytest.raises(DatasetValidationError, match="expected 'RGB'"):
             validate_dataset(GreyDataset(), num_classes=1, sample_size=1)
 
+    def test_image_checks_accept_real_gtsrb_aspect_ratios(self) -> None:
+        """The regression this threshold exists for.
+
+        Measured on 4,000 real GTSRB training images, the most extreme departure
+        from 1:1 is 0.533 (a 0.467 ratio). A default threshold of 0.5 rejected it,
+        which meant a full validation pass over the real dataset could not succeed.
+        """
+        # Real GTSRB extremes: the most portrait image measured is 0.467 (a
+        # long/short ratio of 2.14) and the most landscape is 1.40.
+        for size in ((32, 68), (40, 56), (56, 40), (32, 45)):
+
+            class Dataset:
+                def __init__(self, size: tuple[int, int]) -> None:
+                    self.size = size
+
+                def __len__(self) -> int:
+                    return 1
+
+                def __getitem__(self, index: int) -> tuple[Image.Image, int]:
+                    return Image.new("RGB", self.size), 0
+
+            stats = validate_dataset(Dataset(size), num_classes=1, sample_size=1)
+            assert stats.num_samples == 1
+
     def test_image_checks_catch_a_non_square_ratio(self) -> None:
         class WideDataset:
             def __len__(self) -> int:
                 return 1
 
             def __getitem__(self, index: int) -> tuple[Image.Image, int]:
-                return Image.new("RGB", (200, 20)), 0
+                return Image.new("RGB", (200, 20)), 0  # long/short ratio of 10
 
-        with pytest.raises(DatasetValidationError, match="aspect ratio"):
+        with pytest.raises(DatasetValidationError, match="long/short ratio"):
             validate_dataset(WideDataset(), num_classes=1, sample_size=1)
+
+    def test_a_genuinely_corrupt_crop_is_still_rejected(self) -> None:
+        """Raising the threshold to 1.0 must not disable the check."""
+
+        class CorruptDataset:
+            def __len__(self) -> int:
+                return 1
+
+            def __getitem__(self, index: int) -> tuple[Image.Image, int]:
+                return Image.new("RGB", (600, 12)), 0  # long/short ratio of 50
+
+        with pytest.raises(DatasetValidationError, match="long/short ratio"):
+            validate_dataset(CorruptDataset(), num_classes=1, sample_size=1)
 
     def test_image_checks_catch_a_tensor_base_dataset(self) -> None:
         """A base dataset that already applies transforms breaks per-split pipelines."""
