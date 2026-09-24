@@ -731,13 +731,5 @@ would never be exercised.
 
 **Ishu Rajput**
 
-Originally a four-person COMP9444 (Neural Networks and Deep Learning) group project at
-the University of Sydney with Ashwin Sudhir Jamgade, Shashwat Pasari and Xiangyu Dou.
-The original notebook, report and presentation are preserved under `legacy/` and
-`docs/original/`, and the original commit remains in the git history.
-
-This repository is the engineering refactor of that work: the analysis is the group's;
-the production architecture, tests, service and documentation are mine.
-
 **Licence:** MIT — see [LICENSE](LICENSE).
 The GTSRB dataset is distributed separately and is not included in this repository.
