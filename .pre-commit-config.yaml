@@ -1,0 +1,58 @@
+# Pre-commit hooks. Fast checks that run before a commit leaves the machine, so CI
+# does not have to be the first place a formatting or whitespace problem is found.
+#
+#   uv run pre-commit install          # enable for this clone
+#   uv run pre-commit run --all-files  # run over everything
+#
+# mypy is deliberately in the `manual` stage: it needs the full dependency set
+# installed and takes long enough that running it on every commit gets it disabled.
+# `make typecheck` and CI both run it.
+default_language_version:
+  python: python3.12
+
+repos:
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v6.0.0
+    hooks:
+      - id: trailing-whitespace
+      - id: end-of-file-fixer
+      - id: check-yaml
+        # GitHub Actions workflows use the `on:` key, which PyYAML reads as the
+        # boolean True under the YAML 1.1 spec. The unsafe loader would rewrite it.
+        args: [--unsafe]
+      - id: check-toml
+      - id: check-json
+        exclude: ^notebooks/
+      - id: check-merge-conflict
+      - id: check-added-large-files
+        # Data and checkpoints must never be committed. The dataset is hundreds of
+        # megabytes and checkpoints are build outputs.
+        args: [--maxkb=2048]
+      - id: check-case-conflict
+      - id: detect-private-key
+      - id: mixed-line-ending
+        args: [--fix=lf]
+
+  - repo: https://github.com/astral-sh/ruff-pre-commit
+    rev: v0.16.8
+    hooks:
+      - id: ruff
+        args: [--fix, --exit-non-zero-on-fix]
+      - id: ruff-format
+
+  - repo: local
+    hooks:
+      - id: mypy
+        name: mypy (manual stage)
+        entry: uv run mypy
+        language: system
+        types: [python]
+        pass_filenames: false
+        stages: [manual]
+
+      - id: validate-configs
+        name: validate shipped configs
+        entry: uv run python scripts/validate_configs.py
+        language: system
+        files: ^(configs/.*\.yaml|src/gtsrb/config/.*\.py|scripts/validate_configs\.py)$
+        pass_filenames: false
