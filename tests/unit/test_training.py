@@ -704,6 +704,9 @@ class TestTrackerSeam:
             def log_artifact(self, path: object, artifact_path: str | None = None) -> None:
                 calls.append("artifact")
 
+            def log_dict(self, payload: object, filename: str) -> None:
+                calls.append("dict")
+
             def log_model(self, model: object, metadata: object) -> None:
                 calls.append("model")
 

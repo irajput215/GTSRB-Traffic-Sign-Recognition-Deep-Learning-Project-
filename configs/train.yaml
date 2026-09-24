@@ -55,11 +55,16 @@ training:
     mode: max
     save_last: true
 
-# MLflow is opt-in and defaults to a local file store, so nothing here requires
-# a tracking server or network access.
+# MLflow is opt-in and points at a local SQLite database by default, so nothing
+# here requires a tracking server or network access.
+#
+# sqlite:/// rather than file:./mlruns because MLflow 3.x put the filesystem
+# tracking backend into maintenance mode and refuses it unless
+# MLFLOW_ALLOW_FILE_STORE=true is set. Point this at an http:// URI for a remote
+# server; keep any credential for that server in your shell, not in this file.
 tracking:
   enabled: false
-  tracking_uri: file:./mlruns
+  tracking_uri: sqlite:///mlflow.db
   experiment_name: gtsrb-traffic-sign-recognition
   run_name: null
   tags: {}

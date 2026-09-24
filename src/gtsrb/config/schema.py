@@ -274,12 +274,18 @@ class TrainingConfig(_Base):
 class TrackingConfig(_Base):
     """MLflow experiment tracking.
 
-    Disabled by default and pointed at a local file store when enabled, so the
+    Disabled by default and pointed at a local SQLite database when enabled, so the
     project trains and evaluates with no tracking server and no network access.
+
+    ``sqlite:///`` rather than ``file:./mlruns``: MLflow 3.x put the filesystem
+    tracking backend into maintenance mode and raises on it unless
+    ``MLFLOW_ALLOW_FILE_STORE=true`` is set. A local SQLite file keeps every
+    property that mattered about the file store — one file, no server, no
+    network — without opting out of a supported backend.
     """
 
     enabled: bool = False
-    tracking_uri: str = "file:./mlruns"
+    tracking_uri: str = "sqlite:///mlflow.db"
     experiment_name: str = "gtsrb-traffic-sign-recognition"
     run_name: str | None = None
     tags: dict[str, str] = Field(default_factory=dict)
