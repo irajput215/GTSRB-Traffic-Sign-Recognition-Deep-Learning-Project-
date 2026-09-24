@@ -7,8 +7,8 @@
 .DEFAULT_GOAL := help
 .PHONY: help install install-all lock lint format format-check typecheck test test-unit \
         test-integration coverage check config data data-stats validate-configs train train-mlp \
-        train-resnet smoke clean clean-artifacts pre-commit docker-build docker-run docker-up \
-        docker-down mlflow-ui
+        train-resnet smoke evaluate evaluate-val clean clean-artifacts pre-commit docker-build \
+        docker-run docker-up docker-down mlflow-ui
 
 UV ?= uv
 PYTHON ?= $(UV) run python
@@ -135,6 +135,22 @@ smoke:
 train-tracked:
 	$(PYTHON) -m gtsrb.cli.train --set tracking.enabled=true \
 		--set tracking.register_model=true
+
+# ---------------------------------------------------------------------------
+# Evaluation
+# ---------------------------------------------------------------------------
+
+## evaluate: evaluate the default checkpoint on the test split
+evaluate:
+	$(PYTHON) -m gtsrb.cli.evaluate --split test
+
+## evaluate-val: evaluate the default checkpoint on the validation split
+evaluate-val:
+	$(PYTHON) -m gtsrb.cli.evaluate --split val
+
+# ---------------------------------------------------------------------------
+# Experiment tracking
+# ---------------------------------------------------------------------------
 
 ## mlflow-ui: serve the MLflow UI for the local tracking database
 mlflow-ui:
