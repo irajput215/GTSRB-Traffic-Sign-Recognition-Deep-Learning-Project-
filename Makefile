@@ -6,8 +6,8 @@
 
 .DEFAULT_GOAL := help
 .PHONY: help install install-all lock lint format format-check typecheck test test-unit \
-        test-integration coverage check config clean clean-artifacts pre-commit docker-build \
-        docker-run docker-up docker-down mlflow-ui
+        test-integration coverage check config data data-stats validate-configs clean \
+        clean-artifacts pre-commit docker-build docker-run docker-up docker-down mlflow-ui
 
 UV ?= uv
 PYTHON ?= $(UV) run python
@@ -91,6 +91,22 @@ config:
 	$(PYTHON) -c "from pathlib import Path; \
 from gtsrb.config import load_config; \
 print(load_config([Path('configs/data.yaml'), Path('configs/model.yaml'), Path('configs/train.yaml'), Path('configs/api.yaml')]).model_dump_json(indent=2))"
+
+# ---------------------------------------------------------------------------
+# Data
+# ---------------------------------------------------------------------------
+
+## data: download GTSRB, validate it and write the train/validation split manifest
+data:
+	$(PYTHON) scripts/prepare_data.py
+
+## data-stats: re-measure the channel normalisation statistics and compare them
+data-stats:
+	$(PYTHON) scripts/prepare_data.py --stats --stats-sample-size 4000
+
+## validate-configs: check every shipped YAML layer against the schema
+validate-configs:
+	$(PYTHON) scripts/validate_configs.py
 
 # ---------------------------------------------------------------------------
 # Housekeeping
