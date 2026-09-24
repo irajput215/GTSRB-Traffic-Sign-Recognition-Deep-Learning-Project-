@@ -178,6 +178,46 @@ mlflow-ui:
 	$(UV) run mlflow ui --backend-store-uri sqlite:///mlflow.db --port 5000
 
 # ---------------------------------------------------------------------------
+# Containers
+# ---------------------------------------------------------------------------
+
+IMAGE ?= gtsrb-traffic-sign-recognition:local
+CHECKPOINT_DIR ?= artifacts/checkpoints
+
+## docker-build: build the inference image
+docker-build:
+	docker build -t $(IMAGE) .
+
+## docker-run: run the inference image with the checkpoint mounted read-only
+docker-run:
+	docker run --rm -p 8000:8000 \
+		-v "$(PWD)/$(CHECKPOINT_DIR):/app/artifacts/checkpoints:ro" \
+		-e GTSRB_CHECKPOINT_PATH=/app/artifacts/checkpoints/best.pt \
+		-e GTSRB_DEVICE=cpu \
+		$(IMAGE)
+
+## docker-up: start the service with Compose
+docker-up:
+	docker compose up --build -d
+	@echo "waiting for readiness..."
+	@for i in $$(seq 1 30); do \
+		curl -sf http://127.0.0.1:8000/ready >/dev/null && { echo "ready at http://127.0.0.1:8000"; exit 0; }; \
+		sleep 2; \
+	done; echo "service did not become ready; check 'make docker-logs'" >&2; exit 1
+
+## docker-down: stop the Compose service
+docker-down:
+	docker compose down
+
+## docker-logs: follow the Compose service logs
+docker-logs:
+	docker compose logs -f api
+
+## docker-size: report the built image size
+docker-size:
+	@docker images $(IMAGE) --format "{{.Repository}}:{{.Tag}}  {{.Size}}"
+
+# ---------------------------------------------------------------------------
 # Housekeeping
 # ---------------------------------------------------------------------------
 

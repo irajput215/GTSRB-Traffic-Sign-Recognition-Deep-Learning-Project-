@@ -1,0 +1,64 @@
+# Keep the build context small and prevent anything local or sensitive from
+# reaching the image. The dataset in particular is hundreds of megabytes and is
+# downloaded at runtime, never shipped.
+
+# Version control and CI
+.git
+.github
+.gitignore
+.gitattributes
+
+# Personal, never published
+interview_prep
+
+# Local legacy artefacts
+legacy
+
+# Data and model artefacts: large, and reproducible from instructions
+data
+artifacts
+mlruns
+mlflow.db
+mlflow.db-journal
+*.pt
+*.pth
+*.ckpt
+*.onnx
+*.safetensors
+
+# Python
+__pycache__
+*.py[cod]
+*.egg-info
+.venv
+venv
+build
+dist
+.pytest_cache
+.mypy_cache
+.ruff_cache
+.coverage
+coverage.xml
+htmlcov
+
+# Docs and notebooks do not affect the service
+docs
+notebooks
+
+# Local environment and secrets
+.env
+.env.*
+!.env.example
+
+# Editors and OS
+.vscode
+.idea
+.DS_Store
+Thumbs.db
+*.swp
+
+# Docker's own files
+Dockerfile
+.dockerignore
+docker-compose.yml
+docker-compose.*.yml
