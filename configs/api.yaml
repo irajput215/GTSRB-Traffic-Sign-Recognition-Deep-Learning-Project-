@@ -1,0 +1,11 @@
+# Inference service configuration.
+#
+# Loaded on top of configs/train.yaml so that the API and the training run agree
+# on input geometry, normalisation and class labels by construction.
+api:
+  host: 0.0.0.0  # noqa: S104 - inside a container the service must bind all interfaces
+  port: 8000
+  title: GTSRB Traffic Sign Recognition API
+  log_level: INFO
+  metrics_enabled: true
+  warmup_on_startup: true
