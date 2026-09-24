@@ -131,6 +131,15 @@ smoke:
 	$(PYTHON) -m gtsrb.cli.train --set training.epochs=1 --set training.batch_size=64 \
 		--set training.early_stopping.enabled=false
 
+## train-tracked: train with MLflow tracking and register the resulting model
+train-tracked:
+	$(PYTHON) -m gtsrb.cli.train --set tracking.enabled=true \
+		--set tracking.register_model=true
+
+## mlflow-ui: serve the MLflow UI for the local tracking database
+mlflow-ui:
+	$(UV) run mlflow ui --backend-store-uri sqlite:///mlflow.db --port 5000
+
 # ---------------------------------------------------------------------------
 # Housekeeping
 # ---------------------------------------------------------------------------

@@ -34,6 +34,10 @@ class Tracker(Protocol):
         """Record a file produced by the run."""
         ...
 
+    def log_dict(self, payload: Mapping[str, Any], filename: str) -> None:
+        """Record a JSON-serialisable mapping as a named artifact."""
+        ...
+
     def log_model(self, model: Any, metadata: Any) -> None:
         """Record the trained model artifact, and register it if configured."""
         ...
@@ -57,6 +61,9 @@ class NullTracker:
         return None
 
     def log_artifact(self, path: Path, artifact_path: str | None = None) -> None:
+        return None
+
+    def log_dict(self, payload: Mapping[str, Any], filename: str) -> None:
         return None
 
     def log_model(self, model: Any, metadata: Any) -> None:

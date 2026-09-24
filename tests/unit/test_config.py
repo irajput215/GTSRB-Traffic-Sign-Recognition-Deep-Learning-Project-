@@ -130,6 +130,12 @@ class TestOverrides:
 # Schema validation
 # ---------------------------------------------------------------------------
 class TestSchemaValidation:
+    def test_tracking_defaults_to_a_local_sqlite_backend(self) -> None:
+        """MLflow 3.x rejects the legacy file: store, so SQLite is the default."""
+        tracking = ProjectConfig().tracking
+        assert tracking.enabled is False
+        assert tracking.tracking_uri.startswith("sqlite:///")
+
     def test_defaults_match_original_normalisation_statistics(self) -> None:
         config = ProjectConfig()
         assert config.data.normalize_mean == (0.3403, 0.3121, 0.3214)

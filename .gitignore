@@ -34,6 +34,8 @@
 # ---------------------------------------------------------------------------
 /artifacts/
 /mlruns/
+mlflow.db
+mlflow.db-journal
 /models/
 /reports/
 outputs/
