@@ -1,0 +1,62 @@
+# Local inference service.
+#
+#   docker compose up --build
+#
+# The checkpoint is mounted read-only from the host rather than baked into the
+# image: it is a build output of the training pipeline, it is large, and it changes
+# independently of the code. A self-contained image can COPY it instead — see
+# docs/DEPLOYMENT.md.
+
+services:
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: gtsrb-traffic-sign-recognition:local
+    container_name: gtsrb-api
+    ports:
+      - "8000:8000"
+    volumes:
+      # The trained checkpoint. Run `make train` first, or point this at any
+      # directory containing a checkpoint named best.pt.
+      - ./artifacts/checkpoints:/app/artifacts/checkpoints:ro
+    environment:
+      GTSRB_CHECKPOINT_PATH: /app/artifacts/checkpoints/best.pt
+      GTSRB_DEVICE: cpu
+      GTSRB_LOG_LEVEL: INFO
+      GTSRB_API_METRICS_ENABLED: "true"
+    # Compose waits for the image's HEALTHCHECK before considering the service up.
+    restart: unless-stopped
+    # The service is stateless and CPU-bound; give it a predictable ceiling.
+    deploy:
+      resources:
+        limits:
+          cpus: "2.0"
+          memory: 2g
+    security_opt:
+      - no-new-privileges:true
+    read_only: true
+    tmpfs:
+      # read_only root, but Python and the ML stack need a writable temp dir.
+      - /tmp:size=256m
+
+  # Optional: a local MLflow tracking server, to view runs produced by training.
+  #
+  #   docker compose --profile tracking up
+  #
+  # Only needed for the UI; training writes to a local SQLite database by default
+  # and requires no server at all.
+  mlflow:
+    image: ghcr.io/mlflow/mlflow:v3.16.1
+    container_name: gtsrb-mlflow
+    profiles: ["tracking"]
+    ports:
+      - "5000:5000"
+    volumes:
+      - ./mlflow.db:/data/mlflow.db
+    command: >
+      mlflow server
+      --backend-store-uri sqlite:////data/mlflow.db
+      --host 0.0.0.0
+      --port 5000
+    restart: unless-stopped

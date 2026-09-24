@@ -20,9 +20,12 @@ classifiers = [
   "Topic :: Scientific/Engineering :: Image Recognition",
 ]
 
+# Kept deliberately minimal. pandas was a dependency of the original notebook but
+# nothing in the refactored code imports it any more - evaluation writes CSV with
+# the standard library and the metric tables are lists of dicts - so it was removed
+# rather than left in as a 75 MB unused dependency.
 dependencies = [
   "numpy>=2.0",
-  "pandas>=2.2",
   "pillow>=10.4",
   "matplotlib>=3.9",
   "scikit-learn>=1.5",
@@ -32,6 +35,27 @@ dependencies = [
   "torch>=2.6",
   "torchvision>=0.21",
 ]
+
+# PyTorch is resolved from the CPU wheel index rather than PyPI.
+#
+# On Linux, PyPI's `torch` is the CUDA build: it pulls several gigabytes of NVIDIA
+# runtime libraries plus triton. Measured effect on the inference image before this
+# was configured: 9.63 GB, of which 3.3 GB was `nvidia` and 817 MB was `triton` -
+# GPU runtime for a service that runs on CPU.
+#
+# This is declared here rather than as a `UV_INDEX_URL` in the Dockerfile because
+# the lock file, not the index URL, decides what `uv sync --frozen` installs. A
+# build-time index override is silently ignored against a lock that points at PyPI.
+# Declaring the source makes the lock itself CPU-only, so local runs, CI and the
+# container all resolve identically.
+[[tool.uv.index]]
+name = "pytorch-cpu"
+url = "https://download.pytorch.org/whl/cpu"
+explicit = true
+
+[tool.uv.sources]
+torch = { index = "pytorch-cpu" }
+torchvision = { index = "pytorch-cpu" }
 
 [project.optional-dependencies]
 # Inference API. Kept out of the core install so that training-only
