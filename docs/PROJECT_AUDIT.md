@@ -128,6 +128,36 @@ frozen **except `layer4`**; `fc` replaced with `Identity`; head =
   oversampling is applied to the training index list only **(code, and confirmed by the
   recorded sizes)**
 
+#### Verification performed during the audit
+
+The refactored data pipeline was run against the real GTSRB download and reproduces the
+original figures exactly:
+
+| Quantity | Original notebook | Refactored pipeline |
+| --- | --- | --- |
+| Training split size | 26,640 | 26,640 |
+| Classes present | 43 | 43 / 43 |
+| Per-class min / max | 150 / 1500 | 150 / 1500 |
+| Imbalance ratio | 10.0x | 10.00x |
+| Stratified 80/20 split | 21,312 / 5,328 | 21,312 / 5,328 |
+
+The normalisation constants were also re-measured from the data. On the 64x64-resized
+training split (n = 4000, seed 43):
+
+| Estimator | Mean | Std |
+| --- | --- | --- |
+| Pixel-pooled (statistically correct for normalisation) | 0.3285, 0.3006, 0.3092 | 0.2706, 0.2612, 0.2666 |
+| Mean of per-image means | 0.3383, 0.3104, 0.3199 | 0.2006, 0.1870, 0.1871 |
+| **Configured in the original project** | **0.3403, 0.3121, 0.3214** | **0.2724, 0.2608, 0.2669** |
+| Native resolution (no resize) | 0.3741, 0.3460, 0.3550 | 0.2995, 0.2948, 0.3006 |
+
+The configured mean matches the *mean of per-image means* to within 0.002 and the
+configured std matches the *pooled* estimator to within 0.002, so the original constants
+were derived with that mixed estimator at 64x64. The discrepancy against the pooled
+estimator is at most 0.012 — about 4% of one standard deviation — which is immaterial to
+training and is not worth breaking comparability with the recorded run for. It is
+documented rather than silently "fixed". **(measured)**
+
 ### 2.4 Results actually recorded in the notebook
 
 All values below are the stored outputs of the original Colab A100 run, captured in the
