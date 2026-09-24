@@ -11,7 +11,7 @@ structured error analysis, and a containerised FastAPI inference service.**
 [![FastAPI](https://img.shields.io/badge/FastAPI-0.115%2B-009688?logo=fastapi&logoColor=white)](https://fastapi.tiangolo.com/)
 [![MLflow](https://img.shields.io/badge/MLflow-3.x-0194E2?logo=mlflow&logoColor=white)](https://mlflow.org/)
 [![Docker](https://img.shields.io/badge/Docker-1.8%20GB-2496ED?logo=docker&logoColor=white)](Dockerfile)
-[![CI](https://github.com/irajput215/GTSRB-Traffic-Sign-Recognition-Deep-Learning-Project-/actions/workflows/ci.yml/badge.svg)](../../actions/workflows/ci.yml)
+
 [![Ruff](https://img.shields.io/badge/lint-ruff-261230?logo=ruff&logoColor=white)](https://docs.astral.sh/ruff/)
 [![mypy](https://img.shields.io/badge/typed-mypy-2A6DB2)](https://mypy-lang.org/)
 [![Tests](https://img.shields.io/badge/tests-455%20passing-brightgreen)](tests/)
