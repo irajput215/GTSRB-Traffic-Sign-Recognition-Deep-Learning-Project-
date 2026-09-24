@@ -1,0 +1,62 @@
+cff-version: 1.2.0
+message: "If you use this software, please cite it as below."
+title: "Production-Ready Traffic Sign Recognition (GTSRB)"
+abstract: >-
+  End-to-end computer vision system for 43-class German traffic sign
+  classification: a reproducible PyTorch training pipeline with an auditable
+  data split, MLflow experiment tracking, structured evaluation and error
+  analysis, and a containerised FastAPI inference service.
+authors:
+  - family-names: Rajput
+    given-names: Ishu
+type: software
+license: MIT
+repository-code: "https://github.com/irajput215/GTSRB-Traffic-Sign-Recognition-Deep-Learning-Project-"
+keywords:
+  - traffic sign recognition
+  - GTSRB
+  - computer vision
+  - PyTorch
+  - MLOps
+  - FastAPI
+identifiers:
+  - type: url
+    value: "https://github.com/irajput215/GTSRB-Traffic-Sign-Recognition-Deep-Learning-Project-"
+    description: Repository
+references:
+  - type: conference-paper
+    title: "The German Traffic Sign Recognition Benchmark: A multi-class classification competition"
+    authors:
+      - family-names: Stallkamp
+        given-names: Johannes
+      - family-names: Schlipsing
+        given-names: Marc
+      - family-names: Salmen
+        given-names: Jan
+      - family-names: Igel
+        given-names: Christian
+    collection-title: "Proceedings of the International Joint Conference on Neural Networks (IJCNN)"
+    start: 1453
+    end: 1460
+    year: 2011
+    doi: "10.1109/IJCNN.2011.6033395"
+    notes: >-
+      The dataset used by this project. GTSRB is distributed separately and is
+      not included in this repository.
+  - type: conference-paper
+    title: "Deep Residual Learning for Image Recognition"
+    authors:
+      - family-names: He
+        given-names: Kaiming
+      - family-names: Zhang
+        given-names: Xiangyu
+      - family-names: Ren
+        given-names: Shaoqing
+      - family-names: Sun
+        given-names: Jian
+    collection-title: "Proceedings of the IEEE Conference on Computer Vision and Pattern Recognition (CVPR)"
+    start: 770
+    end: 778
+    year: 2016
+    doi: "10.1109/CVPR.2016.90"
+    notes: "The transfer-learning backbone used by the resnet50 architecture."
