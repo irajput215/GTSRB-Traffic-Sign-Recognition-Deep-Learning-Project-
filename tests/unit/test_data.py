@@ -218,10 +218,13 @@ class TestTransformSubset:
     def test_maps_through_to_the_right_base_index(self) -> None:
         base = FakeBaseDataset([0, 1, 2, 3, 4])
         subset = TransformSubset(base, [4, 1], transforms.ToTensor())
-        _, label = subset[0]
-        assert label == 4
-        _, label = subset[1]
-        assert label == 1
+        assert int(subset[0][1]) == 4
+        assert int(subset[1][1]) == 1
+
+    def test_labels_are_long_tensors(self) -> None:
+        base = FakeBaseDataset([0, 1])
+        subset = TransformSubset(base, [0, 1], transforms.ToTensor())
+        assert subset[0][1].dtype == torch.long
 
     def test_applies_transform(self) -> None:
         base = FakeBaseDataset([0, 1])

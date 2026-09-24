@@ -45,7 +45,7 @@ class LabelledDataset(Protocol):
     def __getitem__(self, index: int) -> tuple[Image.Image, int]: ...
 
 
-class TransformSubset(Dataset[tuple[torch.Tensor, int]]):
+class TransformSubset(Dataset[tuple[torch.Tensor, torch.Tensor]]):
     """A subset of ``dataset`` at explicit ``indices``, with an optional transform.
 
     The transform is required rather than optional: a subset that yields PIL
@@ -94,9 +94,14 @@ class TransformSubset(Dataset[tuple[torch.Tensor, int]]):
     def __len__(self) -> int:
         return len(self.indices)
 
-    def __getitem__(self, index: int) -> tuple[torch.Tensor, int]:
+    def __getitem__(self, index: int) -> tuple[torch.Tensor, torch.Tensor]:
         image, label = self.dataset[self.indices[index]]
-        return self.transform(image), int(label)
+        # The label is returned as a 0-dim long tensor rather than a Python int.
+        # Default collation turns a list of ints into a tensor anyway, so this is
+        # what a batch actually contains; declaring it here keeps the dataset, the
+        # DataLoader and the trainer honest about the same type instead of
+        # declaring ``int`` and contradicting it one layer up.
+        return self.transform(image), torch.tensor(int(label), dtype=torch.long)
 
     @property
     def labels(self) -> list[int]:
