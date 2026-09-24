@@ -1,0 +1,31 @@
+# Model selection and per-architecture settings.
+#
+# Three architectures are kept because the original project's contribution was a
+# controlled comparison between them, and that comparison is still the most
+# interesting thing to be able to re-run:
+#
+#   compact_cnn  the from-scratch CNN that scored best in the original run
+#                (98.84% accuracy) at 64x64. Default, and the deployment choice.
+#   resnet50     ImageNet-pretrained transfer learning at 224x224.
+#   mlp          fully-connected baseline, kept to show what spatial structure buys.
+model:
+  name: compact_cnn
+  num_classes: 43
+
+  compact_cnn:
+    channels: [64, 128, 256]
+    head_hidden: 512
+    conv_dropout: 0.25
+    head_dropout: 0.5
+
+  mlp:
+    hidden_sizes: [2048, 1024, 512, 256]
+    dropouts: [0.3, 0.3, 0.3, 0.2]
+
+  resnet50:
+    weights: imagenet
+    freeze_backbone: true
+    trainable_blocks: [layer4]
+    head_hidden: 512
+    head_dropout: 0.5
+    head_activation: gelu

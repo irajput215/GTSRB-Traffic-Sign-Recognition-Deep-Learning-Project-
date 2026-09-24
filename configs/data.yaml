@@ -1,0 +1,46 @@
+# Dataset, input geometry and split policy.
+#
+# Normalisation statistics are the GTSRB channel statistics used by the original
+# COMP9444 run. They are centralised here because they have to be identical in
+# three places: the training transform, the evaluation transform and the
+# inference preprocessor. When they were duplicated across a notebook, changing
+# one silently invalidated the others.
+data:
+  root: data/raw
+  image_size: 64
+  num_classes: 43
+
+  # Stratified 80/20 split of the official training split, taken BEFORE any
+  # balancing or augmentation so that no augmented view of a validation image
+  # can reach the training set. seed 43 matches the original project, so the
+  # partition is the same one.
+  val_fraction: 0.2
+  split_seed: 43
+  split_manifest: artifacts/splits/gtsrb_split.json
+
+  # 0 workers is the portable default. Raise it for GPU training.
+  num_workers: 0
+  pin_memory: false
+  persistent_workers: false
+
+  normalize_mean: [0.3403, 0.3121, 0.3214]
+  normalize_std: [0.2724, 0.2608, 0.2669]
+
+  augmentation:
+    enabled: true
+    rotation_degrees: 15.0
+    translate: 0.1
+    scale_min: 1.0
+    scale_max: 1.0
+    shear_degrees: 0.0
+    brightness: 0.2
+    contrast: 0.2
+    saturation: 0.0
+    hue: 0.0
+    random_erasing_p: 0.0
+
+  # Replaces the original project's materialised oversampling to a per-class
+  # floor of 800. power=1.0 is fully class-balanced sampling.
+  balance:
+    mode: weighted
+    power: 1.0

@@ -1,0 +1,75 @@
+# Training loop, optimiser, schedule, early stopping and checkpointing.
+#
+# Defaults deliberately reproduce the original COMP9444 protocol (Adam, lr 1e-3,
+# weight decay 1e-4, batch 16, 30 epochs, ReduceLROnPlateau on a plateau of 3,
+# gradient clipping at 1.0, AMP where available) with two deliberate changes,
+# both justified in docs/DECISIONS.md:
+#
+#   * the checkpoint and early-stopping monitor is val_macro_f1, not
+#     val_accuracy. The audit showed accuracy hid a class at 54% recall, so
+#     selecting on accuracy selects a model that is not the best one for the
+#     long tail.
+#   * early stopping is enabled, because the original MLP was still improving at
+#     the epoch limit and the original CNN had stopped improving long before it.
+training:
+  epochs: 30
+  batch_size: 16
+  seed: 43
+  device: auto
+
+  # Deterministic kernels. Turn off for a small throughput gain if exact
+  # reproducibility is not needed.
+  deterministic: true
+  amp: true
+  grad_clip_norm: 1.0
+
+  loss: cross_entropy
+  label_smoothing: 0.0
+  log_every_n_steps: 50
+
+  optimizer:
+    name: adam
+    lr: 1.0e-3
+    weight_decay: 1.0e-4
+    momentum: 0.9
+    nesterov: false
+
+  scheduler:
+    name: reduce_on_plateau
+    monitor: val_loss
+    factor: 0.5
+    patience: 3
+    min_lr: 1.0e-6
+
+  early_stopping:
+    enabled: true
+    monitor: val_macro_f1
+    mode: max
+    patience: 8
+    min_delta: 1.0e-4
+
+  checkpoint:
+    directory: artifacts/checkpoints
+    filename: best.pt
+    monitor: val_macro_f1
+    mode: max
+    save_last: true
+
+# MLflow is opt-in and defaults to a local file store, so nothing here requires
+# a tracking server or network access.
+tracking:
+  enabled: false
+  tracking_uri: file:./mlruns
+  experiment_name: gtsrb-traffic-sign-recognition
+  run_name: null
+  tags: {}
+  log_model: true
+  register_model: false
+  registered_model_name: gtsrb-traffic-sign-classifier
+  log_artifacts: true
+
+inference:
+  checkpoint_path: artifacts/checkpoints/best.pt
+  device: auto
+  top_k: 5
+  max_upload_bytes: 5000000
