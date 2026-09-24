@@ -1,0 +1,189 @@
+name: CI
+
+# Runs on every push to main and every pull request. Deliberately does NOT train:
+# a full training run is minutes to hours of compute, and gating a PR on it would
+# make CI useless. Training is validated separately and on a schedule by
+# model-validation.yml.
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+# Cancel a superseded run on the same ref. Without this, pushing twice to a PR
+# leaves the first run burning a runner for no reason.
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+env:
+  # Keeps uv quiet and non-interactive in CI.
+  UV_FROZEN: "true"
+  UV_NO_PROGRESS: "true"
+
+jobs:
+  # ---------------------------------------------------------------------------
+  # Fast checks. No project dependencies, so this finishes in seconds and gives
+  # a contributor style feedback long before the test job has installed torch.
+  # ---------------------------------------------------------------------------
+  lint:
+    name: Lint and format
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v7
+
+      - name: Ruff lint
+        run: uv run --no-project --with ruff==0.16.8 ruff check src scripts tests
+
+      - name: Ruff format check
+        run: uv run --no-project --with ruff==0.16.8 ruff format --check src scripts tests
+
+      - name: Validate shipped configs
+        run: uv run --no-project --with pyyaml --with pydantic --with pydantic-settings
+          python scripts/validate_configs.py
+
+  # ---------------------------------------------------------------------------
+  # Typing needs the project importable, so it pays the dependency-install cost.
+  # ---------------------------------------------------------------------------
+  typecheck:
+    name: Type check
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v7
+        with:
+          enable-cache: true
+          cache-dependency-glob: uv.lock
+
+      - name: Install dependencies
+        run: uv sync --all-extras
+
+      - name: mypy
+        run: uv run mypy
+
+  # ---------------------------------------------------------------------------
+  # Tests. Unit and integration together: the integration tests that need the
+  # GTSRB download skip cleanly when it is absent, so there is no reason to split
+  # them across jobs and pay the install cost twice.
+  # ---------------------------------------------------------------------------
+  test:
+    name: Tests (Python ${{ matrix.python-version }})
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version: ["3.12", "3.13"]
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v7
+        with:
+          enable-cache: true
+          cache-dependency-glob: uv.lock
+
+      - name: Install dependencies
+        run: uv sync --all-extras --python ${{ matrix.python-version }}
+
+      - name: Run test suite
+        run: >
+          uv run --python ${{ matrix.python-version }} pytest
+          --cov=gtsrb --cov-report=term-missing --cov-report=xml
+          --junitxml=junit-${{ matrix.python-version }}.xml
+
+      - name: Upload coverage
+        if: matrix.python-version == '3.12'
+        uses: actions/upload-artifact@v5
+        with:
+          name: coverage
+          path: coverage.xml
+          if-no-files-found: warn
+
+      - name: Upload test results
+        if: always()
+        uses: actions/upload-artifact@v5
+        with:
+          name: junit-${{ matrix.python-version }}
+          path: junit-${{ matrix.python-version }}.xml
+          if-no-files-found: warn
+
+  # ---------------------------------------------------------------------------
+  # The image is what actually gets deployed, so it is built on every PR. A
+  # Dockerfile that no longer builds is a broken deployment that no amount of
+  # unit testing catches. GHA cache keeps this to roughly a minute when the
+  # dependency layer is unchanged.
+  # ---------------------------------------------------------------------------
+  docker:
+    name: Build image
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Set up Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Build
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          push: false
+          load: true
+          tags: gtsrb-traffic-sign-recognition:ci
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - name: Report image size
+        run: docker images gtsrb-traffic-sign-recognition:ci --format '{{.Repository}}:{{.Tag}}  {{.Size}}'
+
+      - name: Smoke-test the image starts and reports health
+        run: |
+          set -euo pipefail
+          # No checkpoint is mounted, so /ready is expected to be 503 while
+          # /health must still be 200 - which is exactly the behaviour that
+          # stops an orchestrator restart-looping a healthy container.
+          docker run -d --name ci-smoke -p 18000:8000 \
+            -e GTSRB_CHECKPOINT_PATH=/app/artifacts/checkpoints/absent.pt \
+            gtsrb-traffic-sign-recognition:ci
+          for _ in $(seq 1 30); do
+            if curl -sf http://127.0.0.1:18000/health >/dev/null; then break; fi
+            sleep 2
+          done
+          curl -sf http://127.0.0.1:18000/health
+          status=$(curl -s -o /dev/null -w '%{http_code}' http://127.0.0.1:18000/ready)
+          echo "ready returned $status (expected 503 without a checkpoint)"
+          test "$status" = "503"
+          docker logs ci-smoke | tail -20
+          docker rm -f ci-smoke
+
+  # ---------------------------------------------------------------------------
+  # A single job to require in branch protection, so adding a matrix entry later
+  # does not mean editing the protection rule.
+  # ---------------------------------------------------------------------------
+  ci-complete:
+    name: CI complete
+    if: always()
+    needs: [lint, typecheck, test, docker]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check every job succeeded
+        run: |
+          echo "lint=${{ needs.lint.result }}"
+          echo "typecheck=${{ needs.typecheck.result }}"
+          echo "test=${{ needs.test.result }}"
+          echo "docker=${{ needs.docker.result }}"
+          if [ "${{ contains(needs.*.result, 'failure') || contains(needs.*.result, 'cancelled') }}" = "true" ]; then
+            echo "One or more required jobs failed." >&2
+            exit 1
+          fi

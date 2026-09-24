@@ -6,9 +6,9 @@
 
 .DEFAULT_GOAL := help
 .PHONY: help install install-all lock lint format format-check typecheck test test-unit \
-        test-integration coverage check config data data-stats validate-configs train train-mlp \
+        test-integration coverage check ci config data data-stats validate-configs train train-mlp \
         train-resnet smoke evaluate evaluate-val predict serve openapi clean clean-artifacts \
-        pre-commit docker-build docker-run docker-up docker-down mlflow-ui
+        pre-commit docker-build docker-run docker-up docker-down mlflow-size mlflow-ui
 
 UV ?= uv
 PYTHON ?= $(UV) run python
@@ -60,8 +60,12 @@ typecheck:
 pre-commit:
 	$(UV) run pre-commit run --all-files
 
-## check: lint, format check, typecheck and test - the full local CI gate
+## check: lint, format check, typecheck and test
 check: lint format-check typecheck test
+
+## ci: mirror .github/workflows/ci.yml locally, including hooks and coverage
+ci: lint format-check validate-configs typecheck pre-commit
+	$(UV) run pytest --cov=gtsrb --cov-report=term-missing --cov-report=xml
 
 # ---------------------------------------------------------------------------
 # Tests

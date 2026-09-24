@@ -1,0 +1,168 @@
+name: Model validation
+
+# Training is far too expensive to run on every pull request, so it is validated
+# here instead: on demand, and weekly to catch silent rot in the data pipeline or
+# the dependency stack.
+#
+# What this proves that the unit tests cannot: that the real GTSRB download still
+# parses, that the split still reproduces, that training converges above a floor,
+# that evaluation writes its artifacts, and that the API serves a prediction from
+# the checkpoint the run produced.
+on:
+  workflow_dispatch:
+    inputs:
+      epochs:
+        description: "Training epochs. Raise for a more meaningful quality gate."
+        required: false
+        default: "3"
+      model:
+        description: "Architecture to validate."
+        required: false
+        type: choice
+        default: compact_cnn
+        options: [compact_cnn, mlp, resnet50]
+      minimum_val_accuracy:
+        description: "Quality floor for val_accuracy."
+        required: false
+        default: "0.60"
+  schedule:
+    # 03:00 UTC every Monday.
+    - cron: "0 3 * * 1"
+
+concurrency:
+  group: model-validation-${{ github.ref }}
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+env:
+  UV_FROZEN: "true"
+  UV_NO_PROGRESS: "true"
+
+jobs:
+  validate:
+    name: Train, evaluate and serve
+    runs-on: ubuntu-latest
+    # A full GTSRB download plus training on a hosted CPU runner. Generous, but
+    # bounded so a hang cannot occupy a runner indefinitely.
+    timeout-minutes: 180
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v7
+        with:
+          enable-cache: true
+          cache-dependency-glob: uv.lock
+
+      - name: Install dependencies
+        run: uv sync --all-extras
+
+      # The dataset is never committed. Cache it so a repeat run does not
+      # re-download several hundred megabytes for a scheduled job.
+      - name: Cache GTSRB
+        uses: actions/cache@v4
+        with:
+          path: data/raw
+          key: gtsrb-${{ runner.os }}-v1
+
+      - name: Download and validate the dataset, and write the split manifest
+        run: uv run python scripts/prepare_data.py --stats --sample-size 500
+
+      - name: Train
+        env:
+          EPOCHS: ${{ inputs.epochs || '3' }}
+          MODEL: ${{ inputs.model || 'compact_cnn' }}
+        run: |
+          set -euo pipefail
+          uv run python -m gtsrb.cli.train \
+            --set model.name="$MODEL" \
+            --set training.epochs="$EPOCHS" \
+            --set training.checkpoint.directory=artifacts/checkpoints \
+            --json > train_output.json
+          uv run python -c "
+          import json
+          payload = json.load(open('train_output.json'))
+          print('model       :', payload['model_name'])
+          print('epochs      :', payload['epochs_trained'])
+          print('parameters  :', payload['parameter_summary']['total_parameters'])
+          print('best metrics:', json.dumps(payload['best_metrics'], indent=2))
+          "
+
+      - name: Assert the quality floor
+        env:
+          MINIMUM: ${{ inputs.minimum_val_accuracy || '0.60' }}
+        run: |
+          set -euo pipefail
+          uv run python scripts/check_model_quality.py \
+            --monitor val_accuracy \
+            --minimum "$MINIMUM" \
+            --min-epochs 1 \
+            --require-artifacts
+
+      - name: Evaluate on the test split
+        run: |
+          set -euo pipefail
+          uv run python -m gtsrb.cli.evaluate --split test --json > evaluation.json
+          uv run python -c "
+          import json
+          metrics = json.load(open('evaluation.json'))['metrics']
+          errors = json.load(open('evaluation.json'))['error_analysis']
+          print('test accuracy :', round(metrics['accuracy'], 4))
+          print('test macro F1 :', round(metrics['macro_f1'], 4))
+          print('test top-3    :', round(metrics['top3_accuracy'], 4))
+          print('errors        :', errors['num_errors'])
+          for row in errors['worst_classes'][:3]:
+              print('  worst:', row['class_id'], row['class_name'], round(row['recall'], 3))
+          "
+
+      - name: Serve a prediction from the trained checkpoint
+        run: |
+          set -euo pipefail
+          uv run python -m gtsrb.cli.serve --host 127.0.0.1 --port 18001 &
+          SERVER_PID=$!
+          trap 'kill $SERVER_PID 2>/dev/null || true' EXIT
+
+          for _ in $(seq 1 60); do
+            curl -sf http://127.0.0.1:18001/ready >/dev/null && break
+            sleep 2
+          done
+
+          curl -sf http://127.0.0.1:18001/health
+          curl -sf http://127.0.0.1:18001/ready
+
+          # Build a synthetic sign and check the contract, not the answer: after a
+          # few epochs the correct class is not guaranteed, but the response shape
+          # and the probability invariants are.
+          uv run python -c "
+          import numpy as np
+          from PIL import Image
+          array = np.full((64, 64, 3), 60, dtype=np.uint8)
+          yy, xx = np.mgrid[0:64, 0:64]
+          inside = (yy - 32) ** 2 + (xx - 32) ** 2 <= 20 ** 2
+          array[inside] = (200, 30, 30)
+          Image.fromarray(array).save('/tmp/sign.png')
+          "
+          curl -sf -X POST http://127.0.0.1:18001/predict -F "file=@/tmp/sign.png" -o prediction.json
+          uv run python -c "
+          import json
+          payload = json.load(open('prediction.json'))
+          assert 0 <= payload['class_id'] < 43, payload
+          assert 0.0 <= payload['confidence'] <= 1.0, payload
+          assert payload['top_predictions'], payload
+          print('prediction:', payload['class_id'], payload['class_name'], round(payload['confidence'], 4))
+          "
+
+      - name: Upload evaluation artifacts
+        if: always()
+        uses: actions/upload-artifact@v5
+        with:
+          name: evaluation-${{ github.run_id }}
+          path: |
+            artifacts/evaluation
+            artifacts/checkpoints/train_result.json
+            train_output.json
+            evaluation.json
+          if-no-files-found: warn
+          retention-days: 30
